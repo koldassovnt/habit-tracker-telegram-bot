@@ -47,7 +47,6 @@ func main() {
 			switch update.Message.Text {
 			case "open":
 				msg.ReplyMarkup = numericKeyboard
-
 			}
 
 			// Send the message.

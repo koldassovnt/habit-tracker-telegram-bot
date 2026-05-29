@@ -18,7 +18,7 @@
 * /managecategory - add, edit, delete category
 * /managehabit - add, edit, delete habit
 * /trackhabit - track a habit
-* /todaystatus - get a status of tracket habit for today as a text
+* /todaystatus - get a status of tracked habits for today as a text
 * /report - get a report text or file of some date range
 
 ### Menu Buttons
