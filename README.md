@@ -7,19 +7,18 @@
 
 ## Features
 * Personal telegram bot
-* Track habit as DONE, UNDONE + How many times it was done per day
+* Track habit as DONE and How many times it was done per day
 * A category for each habit
-* Tracked habits report as text or files: xlsx, pdf
-* Tracked habits status check
+* Send tracked habits report as text and pdf file once a week and once a month
+* Tracked habits status check per day
 
 ## Bot interaction
 
-### Commands
+### Menu Commands
 * /managecategory - add, edit, delete category
 * /managehabit - add, edit, delete habit
 * /trackhabit - track a habit
 * /todaystatus - get a status of tracked habits for today as a text
-* /report - get a report text or file of some date range
 
 ### Menu Buttons
 ...
@@ -27,7 +26,6 @@
 ## Limitations
 - Maximum 5 categories
 - Maximum 10 habits in one category
-- Report range options: day, current week, current month, choose a month
 
 ## Run in personal computer using docker as a telegram bot server
 

@@ -1,78 +1,73 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/koldassovnt/habit-tracker-telegram-bot/config"
+	"github.com/koldassovnt/habit-tracker-telegram-bot/db"
+	"github.com/koldassovnt/habit-tracker-telegram-bot/inputs"
 )
 
 func main() {
-	bot, err := tgbotapi.NewBotAPI(os.Getenv("TELEGRAM_HABIT_TRACKER_TOKEN"))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	if err := db.RunMigrations(cfg.Database.FlywayDSN()); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	pool, err := db.Connect(ctx, cfg.Database.PgxDSN())
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer pool.Close()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-quit
+		log.Println("Shutting down...")
+		cancel()
+		pool.Close()
+		os.Exit(0)
+	}()
+
+	b, err := tgbotapi.NewBotAPI(cfg.Telegram.Token)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	setCommands(bot)
+	setCommands(b)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
+	updates := b.GetUpdatesChan(u)
 
-	log.Printf("Authorized on account %s", bot.Self.UserName)
-
-	updates := bot.GetUpdatesChan(u)
+	log.Printf("Bot @%s is running...", b.Self.UserName)
 
 	for update := range updates {
-		go handleUpdate(bot, update)
+		go inputs.HandleUpdate(b, update)
 	}
 }
 
-// Set commands on startup
-func setCommands(bot *tgbotapi.BotAPI) {
+func setCommands(b *tgbotapi.BotAPI) {
 	commands := []tgbotapi.BotCommand{
 		{Command: "managecategory", Description: "Add, edit, delete category"},
 		{Command: "managehabit", Description: "Add, edit, delete habit"},
 		{Command: "trackhabit", Description: "Track a habit"},
 		{Command: "todaystatus", Description: "Status of tracked habits for today"},
-		{Command: "report", Description: "Generate Report"},
 	}
-
-	cfg := tgbotapi.NewSetMyCommands(commands...)
-	_, err := bot.Request(cfg)
-	if err != nil {
+	if _, err := b.Request(tgbotapi.NewSetMyCommands(commands...)); err != nil {
 		log.Printf("Failed to set commands: %v", err)
-	}
-}
-
-func handleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
-	if update.Message == nil {
-		return
-	}
-
-	if !update.Message.IsCommand() {
-		return
-	}
-
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, "")
-
-	// Extract the command from the Message.
-	switch update.Message.Command() {
-	case "managecategory":
-		msg.Text = "/managecategory called"
-	case "managehabit":
-		msg.Text = "/managehabit called"
-	case "trackhabit":
-		msg.Text = "/trackhabit called"
-	case "todaystatus":
-		msg.Text = "/todaystatus called"
-	case "report":
-		msg.Text = "/report called"
-	default:
-		msg.Text = "I don't know that command"
-	}
-
-	if _, err := bot.Send(msg); err != nil {
-		log.Panic(err)
 	}
 }
