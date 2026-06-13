@@ -70,9 +70,3 @@ func (d *DatabaseConfig) PgxDSN() string {
 	return fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		d.Host, d.Port, d.User, d.Password, d.Name)
 }
-
-// FlywayDSN is used by Flyway JDBC URL
-func (d *DatabaseConfig) FlywayDSN() string {
-	return fmt.Sprintf("%s:%s/%s?user=%s&password=%s",
-		d.Host, d.Port, d.Name, d.User, d.Password)
-}

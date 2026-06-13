@@ -22,10 +22,6 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	if err := db.RunMigrations(cfg.Database.FlywayDSN()); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
-
 	pool, err := db.Connect(ctx, cfg.Database.PgxDSN())
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)

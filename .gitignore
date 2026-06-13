@@ -1,0 +1,18 @@
+# Environment
+.env
+
+# Binaries
+habit-tracker-telegram-bot
+*.exe
+
+# Go
+*.test
+*.out
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

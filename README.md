@@ -37,3 +37,6 @@
 
 ### Step 3 Set up docker container and run it
 ...
+
+### Run for local testing
+export $(cat .env | xargs) && go run main.go
