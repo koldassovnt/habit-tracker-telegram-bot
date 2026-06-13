@@ -1,40 +1,46 @@
 services:
-  habit-tracker-bot:
-    build: .
-    restart: unless-stopped
-    environment:
-      TELEGRAM_HABIT_TRACKER_TOKEN: your_token_here
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: habit_user
-      DB_PASSWORD: habit_password
-      DB_NAME: habit_tracker
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - habit-tracker-network
-
   postgres:
+    ports:
+    - "5432:5432"
     image: postgres:17-alpine
     restart: unless-stopped
+    env_file: .env
     environment:
-      POSTGRES_USER: habit_user
-      POSTGRES_PASSWORD: habit_password
-      POSTGRES_DB: habit_tracker
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U habit_user -d habit_tracker"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - habit-tracker-network
+      - habit-tracker-bot-network
+
+  migration:
+    image: habit-tracker-migration:${VERSION}
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - habit-tracker-bot-network
+
+  bot:
+    image: habit-tracker-bot:${VERSION}
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+    networks:
+      - habit-tracker-bot-network
 
 volumes:
   postgres_data:
 
 networks:
-  habit-tracker-network:
+  habit-tracker-bot-network:
     driver: bridge

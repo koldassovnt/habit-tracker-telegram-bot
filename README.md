@@ -31,12 +31,3 @@
 
 ### Step 1 Create a telegram bot using @BotFather
 ...
-
-### Step 2 Set up project and create a docker image
-...
-
-### Step 3 Set up docker container and run it
-...
-
-### Run for local testing
-export $(cat .env | xargs) && go run main.go
