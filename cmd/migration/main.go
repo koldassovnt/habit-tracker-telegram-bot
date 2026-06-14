@@ -17,7 +17,7 @@ func main() {
 	}
 	defer conn.Close(ctx)
 
-	sql, err := os.ReadFile("migrations/init.sql")
+	sql, err := os.ReadFile("migrations/v1__init.sql")
 	if err != nil {
 		log.Fatalf("Failed to read migration file: %v", err)
 	}

@@ -21,3 +21,16 @@ func manageHabitKeyboard() tgbotapi.InlineKeyboardMarkup {
 		),
 	)
 }
+
+func trackHabitCategoryKeyboard(categories []Category) tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	for _, cat := range categories {
+		row := tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(cat.Name, "track:category:"+cat.ID),
+		)
+		rows = append(rows, row)
+	}
+
+	return tgbotapi.NewInlineKeyboardMarkup(rows...)
+}
