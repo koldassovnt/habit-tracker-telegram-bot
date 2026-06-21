@@ -62,6 +62,7 @@ func setCommands(b *tgbotapi.BotAPI) {
 		{Command: "managehabit", Description: "Add, edit, delete habit"},
 		{Command: "trackhabit", Description: "Track a habit"},
 		{Command: "todaystatus", Description: "Status of tracked habits for today"},
+		{Command: "help", Description: "Show available commands"},
 	}
 	if _, err := b.Request(tgbotapi.NewSetMyCommands(commands...)); err != nil {
 		log.Printf("Failed to set commands: %v", err)

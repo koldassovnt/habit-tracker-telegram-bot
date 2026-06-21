@@ -14,6 +14,7 @@ func HandleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	}
 
 	if update.Message == nil || !update.Message.IsCommand() {
+		send(bot, helpMessage(update.Message.Chat.ID))
 		return
 	}
 
@@ -57,8 +58,11 @@ func handleCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	case "todaystatus":
 		send(bot, tgbotapi.NewMessage(chatID, "/todaystatus called")) //todo: return tracked habits for today
 
+	case "help":
+		send(bot, helpMessage(chatID))
+
 	default:
-		send(bot, tgbotapi.NewMessage(chatID, "I don't know that command. Type /help to see available commands.")) //todo: need to add /help relization
+		send(bot, tgbotapi.NewMessage(chatID, "I don't know that command. Type /help to see available commands."))
 	}
 }
 
@@ -84,6 +88,20 @@ func handleCallback(bot *tgbotapi.BotAPI, cb *tgbotapi.CallbackQuery) {
 			send(bot, tgbotapi.NewMessage(cb.Message.Chat.ID, "Selected category: "+categoryID)) // todo: show habits for this category
 		}
 	}
+}
+
+func helpMessage(chatID int64) tgbotapi.MessageConfig {
+	text := `🛠 *Available Commands*
+
+/managecategory — Add, edit, delete category
+/managehabit — Add, edit, delete habit
+/trackhabit — Track a habit
+/todaystatus — Status of tracked habits for today
+/help — Show this help message`
+
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = tgbotapi.ModeMarkdown
+	return msg
 }
 
 func send(bot *tgbotapi.BotAPI, msg tgbotapi.MessageConfig) {
