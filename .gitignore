@@ -1,6 +1,9 @@
 # Environment
 .env
 
+# Claude Code
+CLAUDE.md
+
 # Binaries
 habit-tracker-telegram-bot
 *.exe

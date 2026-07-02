@@ -28,6 +28,8 @@ func main() {
 	}
 	defer pool.Close()
 
+	store := db.NewStore(pool)
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -45,6 +47,8 @@ func main() {
 
 	setCommands(b)
 
+	go inputs.StartScheduler(ctx, b, store)
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := b.GetUpdatesChan(u)
@@ -52,7 +56,7 @@ func main() {
 	log.Printf("Bot @%s is running...", b.Self.UserName)
 
 	for update := range updates {
-		go inputs.HandleUpdate(b, update)
+		go inputs.HandleUpdate(ctx, b, store, update)
 	}
 }
 

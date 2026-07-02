@@ -1,28 +1,57 @@
 package inputs
 
 import (
+	"context"
 	"log"
+	"strconv"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/koldassovnt/habit-tracker-telegram-bot/db"
 )
 
-func HandleUpdate(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
+func HandleUpdate(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, update tgbotapi.Update) {
+	if user := extractUser(update); user != nil {
+		if err := store.UpsertUser(ctx, user.ID, user.UserName); err != nil {
+			log.Printf("failed to upsert user: %v", err)
+		}
+	}
+
 	if update.CallbackQuery != nil {
-		handleCallback(bot, update.CallbackQuery)
+		handleCallback(ctx, bot, store, update.CallbackQuery)
 		return
 	}
 
-	if update.Message == nil || !update.Message.IsCommand() {
-		send(bot, helpMessage(update.Message.Chat.ID))
+	if update.Message == nil {
 		return
 	}
 
-	handleCommand(bot, update)
+	if update.Message.IsCommand() {
+		handleCommand(ctx, bot, store, update)
+		return
+	}
+
+	if sess, ok := getSession(update.Message.Chat.ID); ok {
+		handleSessionInput(ctx, bot, store, update.Message, sess)
+		return
+	}
+
+	send(bot, helpMessage(update.Message.Chat.ID))
 }
 
-func handleCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
+func extractUser(update tgbotapi.Update) *tgbotapi.User {
+	if update.Message != nil {
+		return update.Message.From
+	}
+	if update.CallbackQuery != nil {
+		return update.CallbackQuery.From
+	}
+	return nil
+}
+
+func handleCommand(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, update tgbotapi.Update) {
 	chatID := update.Message.Chat.ID
+	userID := update.Message.From.ID
 
 	switch update.Message.Command() {
 	case "managecategory":
@@ -38,11 +67,10 @@ func handleCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		send(bot, msg)
 
 	case "trackhabit":
-		// todo: replace with real DB fetch
-		categories := []Category{
-			{ID: "1", Name: "Health"},
-			{ID: "2", Name: "Sport"},
-			{ID: "3", Name: "Learning"},
+		categories, err := store.ListCategories(ctx, userID)
+		if err != nil {
+			sendErr(bot, chatID)
+			return
 		}
 
 		if len(categories) == 0 {
@@ -56,7 +84,16 @@ func handleCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		send(bot, msg)
 
 	case "todaystatus":
-		send(bot, tgbotapi.NewMessage(chatID, "/todaystatus called")) //todo: return tracked habits for today
+		rows, err := store.TodayStatus(ctx, userID)
+		if err != nil {
+			sendErr(bot, chatID)
+			return
+		}
+		if len(rows) == 0 {
+			send(bot, tgbotapi.NewMessage(chatID, "You have no habits yet. Add one with /managehabit"))
+			return
+		}
+		send(bot, tgbotapi.NewMessage(chatID, formatStatus(rows)))
 
 	case "help":
 		send(bot, helpMessage(chatID))
@@ -66,28 +103,101 @@ func handleCommand(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	}
 }
 
-func handleCallback(bot *tgbotapi.BotAPI, cb *tgbotapi.CallbackQuery) {
+func handleCallback(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, cb *tgbotapi.CallbackQuery) {
 	bot.Request(tgbotapi.NewCallback(cb.ID, ""))
 
-	switch cb.Data {
-	case "category:add":
-		send(bot, tgbotapi.NewMessage(cb.Message.Chat.ID, "Adding a new category..."))
-	case "category:edit":
-		send(bot, tgbotapi.NewMessage(cb.Message.Chat.ID, "Editing a category..."))
-	case "category:delete":
-		send(bot, tgbotapi.NewMessage(cb.Message.Chat.ID, "Deleting a category..."))
-	case "habit:add":
-		send(bot, tgbotapi.NewMessage(cb.Message.Chat.ID, "Adding a new habit..."))
-	case "habit:edit":
-		send(bot, tgbotapi.NewMessage(cb.Message.Chat.ID, "Editing a habit..."))
-	case "habit:delete":
-		send(bot, tgbotapi.NewMessage(cb.Message.Chat.ID, "Deleting a habit..."))
-	default:
-		if strings.HasPrefix(cb.Data, "track:category:") {
-			categoryID := strings.TrimPrefix(cb.Data, "track:category:")
-			send(bot, tgbotapi.NewMessage(cb.Message.Chat.ID, "Selected category: "+categoryID)) // todo: show habits for this category
+	chatID := cb.Message.Chat.ID
+	userID := cb.From.ID
+	data := cb.Data
+
+	switch {
+	case data == "category:add":
+		handleCategoryAdd(bot, chatID)
+	case data == "category:edit":
+		handleCategoryEditList(ctx, bot, store, chatID, userID)
+	case data == "category:delete":
+		handleCategoryDeleteList(ctx, bot, store, chatID, userID)
+	case strings.HasPrefix(data, "category:edit:"):
+		id, err := parseID(data, "category:edit:")
+		if err == nil {
+			handleCategoryEditPick(bot, chatID, id)
+		}
+	case strings.HasPrefix(data, "category:delete:"):
+		id, err := parseID(data, "category:delete:")
+		if err == nil {
+			handleCategoryDeletePick(ctx, bot, store, chatID, userID, id)
+		}
+
+	case data == "habit:add":
+		handleHabitAddCategoryList(ctx, bot, store, chatID, userID)
+	case strings.HasPrefix(data, "habit:addcat:"):
+		id, err := parseID(data, "habit:addcat:")
+		if err == nil {
+			handleHabitAddPickCategory(bot, chatID, id)
+		}
+	case data == "habit:edit":
+		handleHabitEditCategoryList(ctx, bot, store, chatID, userID)
+	case strings.HasPrefix(data, "habit:editcat:"):
+		id, err := parseID(data, "habit:editcat:")
+		if err == nil {
+			handleHabitEditListForCategory(ctx, bot, store, chatID, id)
+		}
+	case strings.HasPrefix(data, "habit:edit:"):
+		id, err := parseID(data, "habit:edit:")
+		if err == nil {
+			handleHabitEditPick(bot, chatID, id)
+		}
+	case data == "habit:delete":
+		handleHabitDeleteCategoryList(ctx, bot, store, chatID, userID)
+	case strings.HasPrefix(data, "habit:deletecat:"):
+		id, err := parseID(data, "habit:deletecat:")
+		if err == nil {
+			handleHabitDeleteListForCategory(ctx, bot, store, chatID, id)
+		}
+	case strings.HasPrefix(data, "habit:delete:"):
+		id, err := parseID(data, "habit:delete:")
+		if err == nil {
+			handleHabitDeletePick(ctx, bot, store, chatID, userID, id)
+		}
+
+	case strings.HasPrefix(data, "track:category:"):
+		id, err := parseID(data, "track:category:")
+		if err == nil {
+			handleTrackCategoryPick(ctx, bot, store, chatID, userID, id)
+		}
+	case strings.HasPrefix(data, "track:habit:"):
+		id, err := parseID(data, "track:habit:")
+		if err == nil {
+			handleTrackHabitPick(ctx, bot, store, chatID, userID, id)
 		}
 	}
+}
+
+func handleSessionInput(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, msg *tgbotapi.Message, sess session) {
+	chatID := msg.Chat.ID
+	userID := msg.From.ID
+	name := strings.TrimSpace(msg.Text)
+	clearSession(chatID)
+
+	if name == "" {
+		send(bot, tgbotapi.NewMessage(chatID, "Name can't be empty — please start over."))
+		return
+	}
+
+	switch sess.flow {
+	case flowAddCategory:
+		finishAddCategory(ctx, bot, store, chatID, userID, name)
+	case flowRenameCategory:
+		finishRenameCategory(ctx, bot, store, chatID, userID, sess.categoryID, name)
+	case flowAddHabit:
+		finishAddHabit(ctx, bot, store, chatID, sess.categoryID, name)
+	case flowRenameHabit:
+		finishRenameHabit(ctx, bot, store, chatID, userID, sess.habitID, name)
+	}
+}
+
+func parseID(data, prefix string) (int64, error) {
+	return strconv.ParseInt(strings.TrimPrefix(data, prefix), 10, 64)
 }
 
 func helpMessage(chatID int64) tgbotapi.MessageConfig {
@@ -104,8 +214,54 @@ func helpMessage(chatID int64) tgbotapi.MessageConfig {
 	return msg
 }
 
+// telegramMessageLimit is Telegram's max character count for a single message.
+const telegramMessageLimit = 4096
+
 func send(bot *tgbotapi.BotAPI, msg tgbotapi.MessageConfig) {
-	if _, err := bot.Send(msg); err != nil {
-		log.Printf("Failed to send message: %v", err)
+	chunks := splitMessage(msg.Text, telegramMessageLimit)
+	for i, chunk := range chunks {
+		part := msg
+		part.Text = chunk
+		if i != len(chunks)-1 {
+			part.ReplyMarkup = nil // only the last chunk gets any keyboard
+		}
+		if _, err := bot.Send(part); err != nil {
+			log.Printf("Failed to send message: %v", err)
+		}
 	}
+}
+
+// splitMessage breaks text into chunks of at most limit characters, preferring
+// to break on line boundaries so a single habit/day entry doesn't get cut in half.
+func splitMessage(text string, limit int) []string {
+	if len(text) <= limit {
+		return []string{text}
+	}
+
+	var chunks []string
+	var b strings.Builder
+
+	for _, line := range strings.SplitAfter(text, "\n") {
+		for len(line) > limit {
+			if b.Len() > 0 {
+				chunks = append(chunks, b.String())
+				b.Reset()
+			}
+			chunks = append(chunks, line[:limit])
+			line = line[limit:]
+		}
+		if b.Len()+len(line) > limit && b.Len() > 0 {
+			chunks = append(chunks, b.String())
+			b.Reset()
+		}
+		b.WriteString(line)
+	}
+	if b.Len() > 0 {
+		chunks = append(chunks, b.String())
+	}
+	return chunks
+}
+
+func sendErr(bot *tgbotapi.BotAPI, chatID int64) {
+	send(bot, tgbotapi.NewMessage(chatID, "Something went wrong, please try again."))
 }
