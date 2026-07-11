@@ -32,6 +32,8 @@ services:
     image: habit-tracker-bot:${VERSION}
     restart: unless-stopped
     env_file: .env
+    environment:
+      TZ: Asia/Almaty
     depends_on:
       migration:
         condition: service_completed_successfully

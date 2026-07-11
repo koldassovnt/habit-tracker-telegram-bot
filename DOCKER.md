@@ -85,7 +85,7 @@ Runs a PostgreSQL 17 database. Data is persisted in a named Docker volume `postg
 Runs once on startup and applies the SQL migration from `migrations/v1_init.sql`. The bot will not start until this completes successfully.
 
 ### bot
-The Telegram bot. Starts only after the migration service completes successfully.
+The Telegram bot. Starts only after the migration service completes successfully. Runs with `TZ=Asia/Almaty` (set in `docker-compose.yml`) so the weekly/monthly report scheduler's 08:00 trigger matches local time instead of the container's default UTC clock.
 
 ---
 

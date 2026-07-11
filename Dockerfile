@@ -10,6 +10,8 @@ RUN go build -o habit-tracker-bot .
 
 FROM alpine:3.21
 
+RUN apk add --no-cache tzdata
+
 WORKDIR /app
 
 COPY --from=builder /app/habit-tracker-bot .
