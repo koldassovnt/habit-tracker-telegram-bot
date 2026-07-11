@@ -5,19 +5,20 @@ import (
 	"time"
 )
 
-func (s *Store) TrackHabit(ctx context.Context, userID, habitID int64) (todayCount int, err error) {
-	if _, err := s.GetHabit(ctx, userID, habitID); err != nil {
-		return 0, err
+func (s *Store) TrackHabit(ctx context.Context, userID, habitID int64) (habitName string, todayCount int, err error) {
+	habit, err := s.GetHabit(ctx, userID, habitID)
+	if err != nil {
+		return "", 0, err
 	}
 
 	if _, err := s.pool.Exec(ctx, `INSERT INTO habit_logs (habit_id) VALUES ($1)`, habitID); err != nil {
-		return 0, err
+		return "", 0, err
 	}
 
 	err = s.pool.QueryRow(ctx, `
 		SELECT COUNT(*) FROM habit_logs WHERE habit_id = $1 AND tracked_at = CURRENT_DATE
 	`, habitID).Scan(&todayCount)
-	return todayCount, err
+	return habit.Name, todayCount, err
 }
 
 func (s *Store) TodayStatus(ctx context.Context, userID int64) ([]StatusRow, error) {

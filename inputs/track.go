@@ -35,7 +35,7 @@ func handleTrackCategoryPick(ctx context.Context, bot *tgbotapi.BotAPI, store *d
 }
 
 func handleTrackHabitPick(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, chatID, userID, habitID int64) {
-	count, err := store.TrackHabit(ctx, userID, habitID)
+	habitName, count, err := store.TrackHabit(ctx, userID, habitID)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			send(bot, tgbotapi.NewMessage(chatID, "Habit not found."))
@@ -44,5 +44,5 @@ func handleTrackHabitPick(ctx context.Context, bot *tgbotapi.BotAPI, store *db.S
 		sendErr(bot, chatID)
 		return
 	}
-	send(bot, tgbotapi.NewMessage(chatID, fmt.Sprintf("Tracked! (%d today)", count)))
+	send(bot, tgbotapi.NewMessage(chatID, fmt.Sprintf("Tracked %q! (%d today)", habitName, count)))
 }
