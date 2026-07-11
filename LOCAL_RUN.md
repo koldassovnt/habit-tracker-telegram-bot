@@ -15,14 +15,17 @@ docker run --name habit-postgres \
   -e POSTGRES_USER=habit_user \
   -e POSTGRES_PASSWORD=habit_password \
   -e POSTGRES_DB=habit_tracker \
+  -e TZ=Asia/Almaty \
   -p 5432:5432 \
   -d postgres:17-alpine
 ```
 
 **Windows (PowerShell):**
 ```powershell
-docker run --name habit-postgres -e POSTGRES_USER=habit_user -e POSTGRES_PASSWORD=habit_password -e POSTGRES_DB=habit_tracker -p 5432:5432 -d postgres:17-alpine
+docker run --name habit-postgres -e POSTGRES_USER=habit_user -e POSTGRES_PASSWORD=habit_password -e POSTGRES_DB=habit_tracker -e TZ=Asia/Almaty -p 5432:5432 -d postgres:17-alpine
 ```
+
+> Replace `Asia/Almaty` with your own IANA timezone. `TZ` only takes effect at first init. It makes `CURRENT_DATE` (used for "today"/tracking day boundaries) match local time instead of UTC.
 
 ---
 

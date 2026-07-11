@@ -79,13 +79,13 @@ docker-compose down -v
 ## Services
 
 ### postgres
-Runs a PostgreSQL 17 database. Data is persisted in a named Docker volume `postgres_data` so it survives container restarts.
+Runs a PostgreSQL 17 database. Data is persisted in a named Docker volume `postgres_data` so it survives container restarts. Set `TZ` to your own IANA timezone (e.g. `Asia/Almaty`) in `docker-compose.yml` so `CURRENT_DATE` (used for "today"/tracking day boundaries) matches your local time instead of UTC. This only takes effect at `initdb` time — if you're upgrading an existing `postgres_data` volume that was already initialized with a different timezone, apply it live instead: `ALTER SYSTEM SET timezone = 'your/timezone'; SELECT pg_reload_conf();`.
 
 ### migration
 Runs once on startup and applies the SQL migration from `migrations/v1_init.sql`. The bot will not start until this completes successfully.
 
 ### bot
-The Telegram bot. Starts only after the migration service completes successfully. Runs with `TZ=Asia/Almaty` (set in `docker-compose.yml`) so the weekly/monthly report scheduler's 08:00 trigger matches local time instead of the container's default UTC clock.
+The Telegram bot. Starts only after the migration service completes successfully. Set `TZ` in `docker-compose.yml` to your own IANA timezone so the weekly/monthly report scheduler's 08:00 trigger matches your local time instead of the container's default UTC clock.
 
 ---
 
