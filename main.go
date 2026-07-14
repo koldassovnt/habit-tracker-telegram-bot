@@ -65,7 +65,10 @@ func setCommands(b *tgbotapi.BotAPI) {
 		{Command: "managecategory", Description: "Add, edit, delete category"},
 		{Command: "managehabit", Description: "Add, edit, delete habit"},
 		{Command: "trackhabit", Description: "Track a habit"},
+		{Command: "trackpast", Description: "Track a habit for a past day"},
+		{Command: "untrack", Description: "Remove a tracked habit"},
 		{Command: "todaystatus", Description: "Status of tracked habits for today"},
+		{Command: "paststatus", Description: "Status of tracked habits for a past day"},
 		{Command: "help", Description: "Show available commands"},
 	}
 	if _, err := b.Request(tgbotapi.NewSetMyCommands(commands...)); err != nil {

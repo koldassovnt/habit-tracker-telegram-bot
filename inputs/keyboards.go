@@ -2,10 +2,17 @@ package inputs
 
 import (
 	"strconv"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/koldassovnt/habit-tracker-telegram-bot/db"
 )
+
+// dateWindowDays is how many days back the date pickers offer, counting today.
+const dateWindowDays = 7
+
+// dateCallbackLayout is the callback-data encoding for a picked day.
+const dateCallbackLayout = "2006-01-02"
 
 func manageCategoryKeyboard() tgbotapi.InlineKeyboardMarkup {
 	return tgbotapi.NewInlineKeyboardMarkup(
@@ -51,6 +58,30 @@ func trackHabitKeyboard(habits []db.Habit) tgbotapi.InlineKeyboardMarkup {
 	}
 
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)
+}
+
+// datePickKeyboard lists today and the previous 6 days as buttons whose
+// callback data is callbackPrefix + the day (e.g. "paststatus:day:2026-07-14").
+func datePickKeyboard(callbackPrefix string, now time.Time) tgbotapi.InlineKeyboardMarkup {
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	for i := 0; i < dateWindowDays; i++ {
+		day := now.AddDate(0, 0, -i)
+		row := tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(dayLabel(day, now), callbackPrefix+day.Format(dateCallbackLayout)),
+		)
+		rows = append(rows, row)
+	}
+
+	return tgbotapi.NewInlineKeyboardMarkup(rows...)
+}
+
+// dayLabel renders a picked day for humans, e.g. "Today" or "Tue 14 Jul".
+func dayLabel(day, now time.Time) string {
+	if day.Format(dateCallbackLayout) == now.Format(dateCallbackLayout) {
+		return "Today"
+	}
+	return day.Format("Mon 2 Jan")
 }
 
 // categoryPickKeyboard lists categories as buttons whose callback data is

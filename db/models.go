@@ -5,7 +5,11 @@ import (
 	"time"
 )
 
-var ErrNotFound = errors.New("not found")
+var (
+	ErrNotFound = errors.New("not found")
+	// ErrNoLog means the habit exists but has no log on the requested day.
+	ErrNoLog = errors.New("no log")
+)
 
 type Category struct {
 	ID     int64

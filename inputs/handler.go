@@ -2,9 +2,11 @@ package inputs
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/koldassovnt/habit-tracker-telegram-bot/db"
@@ -83,6 +85,17 @@ func handleCommand(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, u
 		msg.ReplyMarkup = trackHabitCategoryKeyboard(categories)
 		send(bot, msg)
 
+	case "trackpast":
+		sendCategoryPicker(ctx, bot, store, chatID, userID, "trackpast:cat:", "Choose a category:")
+
+	case "untrack":
+		sendCategoryPicker(ctx, bot, store, chatID, userID, "untrack:cat:", "Choose a category:")
+
+	case "paststatus":
+		msg := tgbotapi.NewMessage(chatID, "Which day do you want the status for?")
+		msg.ReplyMarkup = datePickKeyboard("paststatus:day:", time.Now())
+		send(bot, msg)
+
 	case "todaystatus":
 		rows, err := store.TodayStatus(ctx, userID)
 		if err != nil {
@@ -93,7 +106,7 @@ func handleCommand(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, u
 			send(bot, tgbotapi.NewMessage(chatID, "You have no habits yet. Add one with /managehabit"))
 			return
 		}
-		send(bot, tgbotapi.NewMessage(chatID, formatStatus(rows)))
+		send(bot, tgbotapi.NewMessage(chatID, formatStatus("Today's status:", rows)))
 
 	case "help":
 		send(bot, helpMessage(chatID))
@@ -101,6 +114,37 @@ func handleCommand(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, u
 	default:
 		send(bot, tgbotapi.NewMessage(chatID, "I don't know that command. Type /help to see available commands."))
 	}
+}
+
+// sendCategoryPicker offers the user's categories as buttons carrying callbackPrefix.
+func sendCategoryPicker(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, chatID, userID int64, callbackPrefix, prompt string) {
+	categories, err := store.ListCategories(ctx, userID)
+	if err != nil {
+		sendErr(bot, chatID)
+		return
+	}
+	if len(categories) == 0 {
+		send(bot, tgbotapi.NewMessage(chatID, "No categories found. Add one with /managecategory"))
+		return
+	}
+
+	msg := tgbotapi.NewMessage(chatID, prompt)
+	msg.ReplyMarkup = categoryPickKeyboard(categories, callbackPrefix)
+	send(bot, msg)
+}
+
+func handlePastStatus(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, chatID, userID int64, day time.Time) {
+	rows, err := store.PeriodStatus(ctx, userID, day, day)
+	if err != nil {
+		sendErr(bot, chatID)
+		return
+	}
+	if len(rows) == 0 {
+		send(bot, tgbotapi.NewMessage(chatID, "You have no habits yet. Add one with /managehabit"))
+		return
+	}
+	title := fmt.Sprintf("Status for %s:", dayLabel(day, time.Now()))
+	send(bot, tgbotapi.NewMessage(chatID, formatStatus(title, periodRowsToStatus(rows))))
 }
 
 func handleCallback(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, cb *tgbotapi.CallbackQuery) {
@@ -170,6 +214,44 @@ func handleCallback(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, 
 		if err == nil {
 			handleTrackHabitPick(ctx, bot, store, chatID, userID, id)
 		}
+
+	case strings.HasPrefix(data, "trackpast:cat:"):
+		id, err := parseID(data, "trackpast:cat:")
+		if err == nil {
+			handleTrackPastCategoryPick(ctx, bot, store, chatID, userID, id)
+		}
+	case strings.HasPrefix(data, "trackpast:habit:"):
+		id, err := parseID(data, "trackpast:habit:")
+		if err == nil {
+			handleTrackPastHabitPick(bot, chatID, id)
+		}
+	case strings.HasPrefix(data, "trackpast:day:"):
+		id, day, err := parseIDAndDate(data, "trackpast:day:")
+		if err == nil {
+			handleTrackPastDayPick(ctx, bot, store, chatID, userID, id, day)
+		}
+
+	case strings.HasPrefix(data, "untrack:cat:"):
+		id, err := parseID(data, "untrack:cat:")
+		if err == nil {
+			handleUntrackCategoryPick(ctx, bot, store, chatID, userID, id)
+		}
+	case strings.HasPrefix(data, "untrack:habit:"):
+		id, err := parseID(data, "untrack:habit:")
+		if err == nil {
+			handleUntrackHabitPick(bot, chatID, id)
+		}
+	case strings.HasPrefix(data, "untrack:day:"):
+		id, day, err := parseIDAndDate(data, "untrack:day:")
+		if err == nil {
+			handleUntrackDayPick(ctx, bot, store, chatID, userID, id, day)
+		}
+
+	case strings.HasPrefix(data, "paststatus:day:"):
+		day, err := time.ParseInLocation(dateCallbackLayout, strings.TrimPrefix(data, "paststatus:day:"), time.Local)
+		if err == nil {
+			handlePastStatus(ctx, bot, store, chatID, userID, day)
+		}
 	}
 }
 
@@ -200,13 +282,36 @@ func parseID(data, prefix string) (int64, error) {
 	return strconv.ParseInt(strings.TrimPrefix(data, prefix), 10, 64)
 }
 
+// parseIDAndDate reads callback data shaped "<prefix><id>:<YYYY-MM-DD>".
+func parseIDAndDate(data, prefix string) (int64, time.Time, error) {
+	rest := strings.TrimPrefix(data, prefix)
+	idPart, dayPart, ok := strings.Cut(rest, ":")
+	if !ok {
+		return 0, time.Time{}, fmt.Errorf("malformed callback data %q", data)
+	}
+
+	id, err := strconv.ParseInt(idPart, 10, 64)
+	if err != nil {
+		return 0, time.Time{}, err
+	}
+
+	day, err := time.ParseInLocation(dateCallbackLayout, dayPart, time.Local)
+	if err != nil {
+		return 0, time.Time{}, err
+	}
+	return id, day, nil
+}
+
 func helpMessage(chatID int64) tgbotapi.MessageConfig {
 	text := `🛠 *Available Commands*
 
 /managecategory — Add, edit, delete category
 /managehabit — Add, edit, delete habit
 /trackhabit — Track a habit
+/trackpast — Track a habit for a past day
+/untrack — Remove a tracked habit
 /todaystatus — Status of tracked habits for today
+/paststatus — Status of tracked habits for a past day
 /help — Show this help message`
 
 	msg := tgbotapi.NewMessage(chatID, text)

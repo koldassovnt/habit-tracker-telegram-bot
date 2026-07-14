@@ -7,9 +7,23 @@ import (
 	"github.com/koldassovnt/habit-tracker-telegram-bot/db"
 )
 
-func formatStatus(rows []db.StatusRow) string {
+// periodRowsToStatus flattens single-day PeriodStatus output onto the StatusRow
+// shape formatStatus renders. Only meaningful when the period is one day.
+func periodRowsToStatus(rows []db.PeriodLogRow) []db.StatusRow {
+	statuses := make([]db.StatusRow, 0, len(rows))
+	for _, r := range rows {
+		statuses = append(statuses, db.StatusRow{
+			CategoryName: r.CategoryName,
+			HabitName:    r.HabitName,
+			Count:        r.Count,
+		})
+	}
+	return statuses
+}
+
+func formatStatus(title string, rows []db.StatusRow) string {
 	var b strings.Builder
-	b.WriteString("Today's status:\n")
+	b.WriteString(title + "\n")
 
 	currentCategory := ""
 	for _, r := range rows {
