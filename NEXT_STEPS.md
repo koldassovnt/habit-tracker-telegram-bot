@@ -1,15 +1,6 @@
 # Next Steps
 
-Version 1.1.0 (backups, the versioned migration runner and `/reminder`) was deployed on 2026-10-06. On the same day the bot moved from two hand-started `docker run` containers onto `docker-compose`, with the database restored from a dump into the `postgres_data` volume. Backups, the test restore and the migration were checked then.
-
-## Left to do
-
-1. **Check reminders in Telegram** (per habit since 1.2.0). Send `/reminder`, pick a category, a habit and the current hour. Within a minute the bot should send that habit as a track button, unless it is already tracked today. Restart the bot in the same hour: no second reminder. `/reminder` → the habit → Off removes it.
-2. **Remove the old containers** once the compose stack has run well for a few days. They are stopped and still hold the pre-move database as a fallback:
-   ```bash
-   docker rm -v habit-tracker-bot habit-postgres
-   ```
-   The same data is also in `pre-compose-move-final-2026-10-06.dump` in `BACKUP_DIR`. To fall back before then: `docker-compose down` (without `-v`), then `docker start habit-postgres habit-tracker-bot`.
+Nothing is pending. On 2026-10-06 the bot moved from two hand-started `docker run` containers onto `docker-compose`, and versions 1.1.0 (nightly backups, the versioned migration runner) and 1.2.0 (per-habit `/reminder`) were deployed and checked. The old containers were removed; the pre-move database is kept as `pre-compose-move-final-2026-10-06.dump` in `BACKUP_DIR`.
 
 ## Ideas not planned yet
 
