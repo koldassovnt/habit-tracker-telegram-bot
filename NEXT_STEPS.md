@@ -1,31 +1,15 @@
 # Next Steps
 
-Backups, the versioned migration runner and daily reminders (`/reminder`) are implemented in version 1.1.0. They have been built and unit-tested, but not yet run against the real database. Roll them out in this order.
+Version 1.1.0 (backups, the versioned migration runner and `/reminder`) was deployed on 2026-10-06. On the same day the bot moved from two hand-started `docker run` containers onto `docker-compose`, with the database restored from a dump into the `postgres_data` volume. Backups, the test restore and the migration were checked then.
 
-## Rollout checklist
+## Left to do
 
-1. **Backups first.** Add `BACKUP_DIR=D:/some-folder` to `.env` (forward slashes, outside the repo, on a different disk from Docker's data) and create the folder. Then start only the backup service, which does not run the migration:
+1. **Check reminders in Telegram.** Send `/reminder` and pick the current hour. Within a minute the bot should list only the habits not tracked today; tapping one tracks it. Restart the bot in the same hour: no second reminder. `/reminder` → Off stops them.
+2. **Remove the old containers** once the compose stack has run well for a few days. They are stopped and still hold the pre-move database as a fallback:
    ```bash
-   VERSION=$(cat VERSION) docker-compose up -d backup
-   docker-compose logs backup      # expect "wrote habit_tracker-....dump"
-   docker-compose ps backup        # expect "healthy" after a couple of minutes
+   docker rm -v habit-tracker-bot habit-postgres
    ```
-2. **Test the restore** into a throwaway database:
-   ```bash
-   docker-compose exec backup sh -c '
-     createdb restore_test &&
-     pg_restore --dbname=restore_test --no-owner --exit-on-error /backups/habit_tracker-YYYY-MM-DD_HHMM.dump &&
-     psql -d restore_test -c "select count(*) from habit_logs" ;
-     dropdb restore_test'
-   ```
-3. **Deploy 1.1.0.**
-   ```bash
-   ./build.sh
-   VERSION=$(cat VERSION) docker-compose up -d
-   docker-compose logs migration
-   ```
-   On the existing database the migration log should say it recorded `v1__init.sql` as already applied, then `Applied v2__reminders.sql`. A second `docker-compose up` should log `Nothing to apply`.
-4. **Check reminders in Telegram.** Send `/reminder` and pick the current hour. Within a minute the bot should list only the habits not tracked today; tapping one tracks it. Restart the bot in the same hour: no second reminder. `/reminder` → Off stops them.
+   The same data is also in `pre-compose-move-final-2026-10-06.dump` in `BACKUP_DIR`. To fall back before then: `docker-compose down` (without `-v`), then `docker start habit-postgres habit-tracker-bot`.
 
 ## Ideas not planned yet
 
