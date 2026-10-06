@@ -89,35 +89,6 @@ func (s *Store) TodayStatus(ctx context.Context, userID int64) ([]StatusRow, err
 	return statuses, rows.Err()
 }
 
-// UntrackedHabits returns the user's active habits with no log on the given day.
-func (s *Store) UntrackedHabits(ctx context.Context, userID int64, day time.Time) ([]Habit, error) {
-	rows, err := s.pool.Query(ctx, `
-		SELECT h.id, h.category_id, h.name
-		FROM habits h
-		JOIN categories c ON c.id = h.category_id
-		WHERE c.user_id = $1 AND h.actual = true AND c.actual = true
-		  AND NOT EXISTS (
-			SELECT 1 FROM habit_logs hl
-			WHERE hl.habit_id = h.id AND hl.tracked_at = $2::date
-		  )
-		ORDER BY c.name, h.name
-	`, userID, day.Format(time.DateOnly))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var habits []Habit
-	for rows.Next() {
-		var h Habit
-		if err := rows.Scan(&h.ID, &h.CategoryID, &h.Name); err != nil {
-			return nil, err
-		}
-		habits = append(habits, h)
-	}
-	return habits, rows.Err()
-}
-
 func (s *Store) PeriodStatus(ctx context.Context, userID int64, from, to time.Time) ([]PeriodLogRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT c.name, h.name, gs.day::date, COUNT(hl.id)

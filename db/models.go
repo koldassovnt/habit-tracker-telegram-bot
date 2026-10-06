@@ -29,6 +29,18 @@ type StatusRow struct {
 	Count        int
 }
 
+type HabitReminder struct {
+	HabitName string
+	Hour      int
+}
+
+// DueReminder is a habit whose reminder hour has arrived for its owner.
+type DueReminder struct {
+	UserID       int64
+	Habit        Habit
+	TrackedToday bool
+}
+
 type PeriodLogRow struct {
 	CategoryName string
 	HabitName    string

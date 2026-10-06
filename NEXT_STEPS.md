@@ -4,7 +4,7 @@ Version 1.1.0 (backups, the versioned migration runner and `/reminder`) was depl
 
 ## Left to do
 
-1. **Check reminders in Telegram.** Send `/reminder` and pick the current hour. Within a minute the bot should list only the habits not tracked today; tapping one tracks it. Restart the bot in the same hour: no second reminder. `/reminder` → Off stops them.
+1. **Check reminders in Telegram** (per habit since 1.2.0). Send `/reminder`, pick a category, a habit and the current hour. Within a minute the bot should send that habit as a track button, unless it is already tracked today. Restart the bot in the same hour: no second reminder. `/reminder` → the habit → Off removes it.
 2. **Remove the old containers** once the compose stack has run well for a few days. They are stopped and still hold the pre-move database as a fallback:
    ```bash
    docker rm -v habit-tracker-bot habit-postgres
@@ -14,6 +14,6 @@ Version 1.1.0 (backups, the versioned migration runner and `/reminder`) was depl
 ## Ideas not planned yet
 
 - Per-user timezones. Reminders and reports use server local time (Asia/Almaty).
-- Reminder times per habit (e.g. "Drink water" at 10, 14 and 18).
+- Several reminder times for one habit (e.g. "Drink water" at 10, 14 and 18). A habit has at most one reminder hour.
 - An off-site or encrypted copy of the backups. They are local only, which survives a disk failure or a Docker reset, not theft or fire.
 - Saving the weekly/monthly report "already sent" guard in the database, as reminders do with `last_sent_on`.
