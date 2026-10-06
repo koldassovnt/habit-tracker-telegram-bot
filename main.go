@@ -69,6 +69,7 @@ func setCommands(b *tgbotapi.BotAPI) {
 		{Command: "untrack", Description: "Remove a tracked habit"},
 		{Command: "todaystatus", Description: "Status of tracked habits for today"},
 		{Command: "paststatus", Description: "Status of tracked habits for a past day"},
+		{Command: "reminder", Description: "Daily reminder of habits not tracked yet"},
 		{Command: "help", Description: "Show available commands"},
 	}
 	if _, err := b.Request(tgbotapi.NewSetMyCommands(commands...)); err != nil {
