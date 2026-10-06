@@ -23,6 +23,9 @@ services:
   migration:
     image: habit-tracker-migration:${VERSION}
     env_file: .env
+    environment:
+      # .env keeps DB_HOST=localhost for running outside Docker.
+      DB_HOST: postgres
     depends_on:
       postgres:
         condition: service_healthy
@@ -35,9 +38,37 @@ services:
     env_file: .env
     environment:
       TZ: Asia/Almaty
+      DB_HOST: postgres
     depends_on:
       migration:
         condition: service_completed_successfully
+    networks:
+      - habit-tracker-bot-network
+
+  backup:
+    # Must stay on the same Postgres major version as the postgres service.
+    image: postgres:17-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["sh", "/scripts/backup.sh"]
+    command: ["schedule"]
+    environment:
+      TZ: Asia/Almaty
+      PGHOST: postgres
+      PGDATABASE: ${DB_NAME}
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ${BACKUP_DIR:?set BACKUP_DIR in .env}:/backups
+      - ./scripts/backup.sh:/scripts/backup.sh:ro
+    healthcheck:
+      # Unhealthy once the newest dump is over 26 hours old.
+      test: ["CMD", "sh", "/scripts/backup.sh", "healthcheck"]
+      interval: 5m
+      timeout: 10s
+      start_period: 2m
+    restart: unless-stopped
     networks:
       - habit-tracker-bot-network
 

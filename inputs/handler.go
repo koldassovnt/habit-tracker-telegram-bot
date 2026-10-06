@@ -108,6 +108,9 @@ func handleCommand(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, u
 		}
 		send(bot, tgbotapi.NewMessage(chatID, formatStatus("Today's status:", rows)))
 
+	case "reminder":
+		handleReminderCommand(ctx, bot, store, chatID, userID)
+
 	case "help":
 		send(bot, helpMessage(chatID))
 
@@ -252,6 +255,27 @@ func handleCallback(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store, 
 		if err == nil {
 			handlePastStatus(ctx, bot, store, chatID, userID, day)
 		}
+
+	case strings.HasPrefix(data, "reminder:cat:"):
+		id, err := parseID(data, "reminder:cat:")
+		if err == nil {
+			handleReminderCategoryPick(ctx, bot, store, chatID, userID, id)
+		}
+	case strings.HasPrefix(data, "reminder:habit:"):
+		id, err := parseID(data, "reminder:habit:")
+		if err == nil {
+			handleReminderHabitPick(ctx, bot, store, chatID, userID, id)
+		}
+	case strings.HasPrefix(data, "reminder:set:"):
+		id, hour, err := parseReminderSet(data)
+		if err == nil {
+			handleReminderSet(ctx, bot, store, chatID, userID, id, hour)
+		}
+	case strings.HasPrefix(data, "reminder:off:"):
+		id, err := parseID(data, "reminder:off:")
+		if err == nil {
+			handleReminderOff(ctx, bot, store, chatID, userID, id)
+		}
 	}
 }
 
@@ -312,6 +336,7 @@ func helpMessage(chatID int64) tgbotapi.MessageConfig {
 /untrack — Remove a tracked habit
 /todaystatus — Status of tracked habits for today
 /paststatus — Status of tracked habits for a past day
+/reminder — Set a daily reminder for a habit
 /help — Show this help message`
 
 	msg := tgbotapi.NewMessage(chatID, text)

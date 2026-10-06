@@ -76,6 +76,31 @@ func datePickKeyboard(callbackPrefix string, now time.Time) tgbotapi.InlineKeybo
 	return tgbotapi.NewInlineKeyboardMarkup(rows...)
 }
 
+// reminderHourKeyboard offers the reminder hours for a habit as
+// "reminder:set:<habitID>:<hour>" buttons, six per row, plus an Off button.
+func reminderHourKeyboard(habitID int64) tgbotapi.InlineKeyboardMarkup {
+	id := strconv.FormatInt(habitID, 10)
+	var rows [][]tgbotapi.InlineKeyboardButton
+	var row []tgbotapi.InlineKeyboardButton
+
+	for hour := reminderFirstHour; hour <= reminderLastHour; hour++ {
+		label := strconv.Itoa(hour) + ":00"
+		row = append(row, tgbotapi.NewInlineKeyboardButtonData(label, "reminder:set:"+id+":"+strconv.Itoa(hour)))
+		if len(row) == 6 {
+			rows = append(rows, row)
+			row = nil
+		}
+	}
+	if len(row) > 0 {
+		rows = append(rows, row)
+	}
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("🔕 Off", "reminder:off:"+id),
+	))
+
+	return tgbotapi.NewInlineKeyboardMarkup(rows...)
+}
+
 // dayLabel renders a picked day for humans, e.g. "Today" or "Tue 14 Jul".
 func dayLabel(day, now time.Time) string {
 	if day.Format(dateCallbackLayout) == now.Format(dateCallbackLayout) {

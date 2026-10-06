@@ -13,7 +13,8 @@ import (
 )
 
 // StartScheduler blocks until ctx is cancelled, checking once a minute whether
-// it's time to push the weekly or monthly report to every user.
+// it's time to push the weekly or monthly report to every user, and sending
+// the daily reminders that are due.
 func StartScheduler(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
@@ -35,6 +36,7 @@ func StartScheduler(ctx context.Context, bot *tgbotapi.BotAPI, store *db.Store) 
 				lastMonthly = today
 				sendMonthlyReports(ctx, bot, store, now)
 			}
+			sendDueReminders(ctx, bot, store, now)
 		}
 	}
 }
